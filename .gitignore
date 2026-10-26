@@ -1,0 +1,12 @@
+**/node_modules/
+**/dist/
+**/coverage/
+**/docs/
+**/*.tsbuildinfo
+**/.nuxt/
+**/.output/
+**/.data/
+**/.env
+**/.env.*
+!**/.env.example
+.codebase-memory/
