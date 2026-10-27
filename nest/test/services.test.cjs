@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const { describe, it } = require('node:test');
 const { AuthService } = require('../dist/auth/auth.service');
+const { getCorsOrigins } = require('../dist/cors.config');
 const { DataService } = require('../dist/data/data.service');
 const { DocumentsService } = require('../dist/documents/documents.service');
 const { FlightHoursService } = require('../dist/flight-hours/flight-hours.service');
@@ -9,6 +10,21 @@ const { SchedulesService } = require('../dist/schedules/schedules.service');
 const data = new DataService();
 
 describe('pilot API services', () => {
+  it('normalizes and validates the configured CORS origin allowlist', () => {
+    assert.deepEqual(
+      getCorsOrigins(
+        ' https://susiair-1p7p7982m-budichyn2003s-projects.vercel.app/, https://susiair.com ',
+      ),
+      [
+        'https://susiair-1p7p7982m-budichyn2003s-projects.vercel.app',
+        'https://susiair.com',
+      ],
+    );
+    assert.throws(() => getCorsOrigins('https://susiair.com/login'), {
+      message: /without a path/,
+    });
+  });
+
   it('issues a bearer token for the test account and rejects bad credentials', () => {
     const auth = new AuthService();
     const session = auth.login({ username: 'johndoe', password: 'susiairtest' });

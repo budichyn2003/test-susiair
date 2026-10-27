@@ -76,7 +76,7 @@ The frontend API URL defaults to `http://localhost:3001`. To use another URL, se
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | `3001` | HTTP port; hosting platforms can supply this. |
-| `CORS_ORIGIN` | `http://localhost:3000` | Comma-separated allowed frontend origins. |
+| `CORS_ORIGIN` | `http://localhost:3000` | Comma-separated allowed frontend origins (for example `https://susiair-1p7p7982m-budichyn2003s-projects.vercel.app`). Use origins only: no path; trailing slash is accepted. |
 | `PILOT_AVATAR_URL` | UI Avatars URL for John Doe | Avatar URL returned by `GET /pilot/me`; the source JSON does not contain an avatar. |
 | `DATA_DIR` | `<working directory>/data` | Directory containing the three seed JSON files. |
 
@@ -155,7 +155,7 @@ For manual API checks, start the backend and use a terminal HTTP client to log i
 
 Deploy each folder as its own service from the same repository:
 
-1. **Backend (Railway, Render, or Fly):** set the service root to `nest`, install with `npm install`, build with `npm run build`, and start with `npm run start:prod`. Set `CORS_ORIGIN` to the deployed frontend's origin. Include `nest/data/` in the deployed source so the JSON seed files are available at runtime.
+1. **Backend (Railway, Render, or Fly):** set the service root to `nest`, install with `npm install`, build with `npm run build`, and start with `npm run start:prod`. In the hosting service's environment settings, set `CORS_ORIGIN` to the exact deployed frontend origin, such as `https://susiair-1p7p7982m-budichyn2003s-projects.vercel.app` (not the API URL, and without a route path). If there are multiple frontend domains, separate them with commas. Save the environment change and redeploy/restart the backend. Include `nest/data/` in the deployed source so the JSON seed files are available at runtime.
 2. **Frontend (Vercel or Netlify):** set the project root to `nuxt`, build with `npm run build`, and set `NUXT_PUBLIC_API_BASE` to the backend's public URL. Configure any required Nuxt/Nitro output settings using the host's Nuxt preset.
 3. Once both services are deployed, test a fresh login and confirm Home and Schedule requests succeed against the public backend.
 
