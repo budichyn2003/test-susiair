@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ArrowLeft } from '@lucide/vue';
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import PilotBottomNav from '~/components/PilotBottomNav.vue';
 import ScheduleCalendar from '~/components/ScheduleCalendar.vue';
 import { useAuthStore } from '~/stores/auth';
@@ -11,18 +11,34 @@ const auth = useAuthStore();
 const year = ref(2026);
 const month = ref(5);
 const scheduleData = ref<SchedulesResponse | null>(null);
+const displayedSchedules = computed(() => {
+  const data = scheduleData.value;
+  if (!data || data.year !== year.value || data.month !== month.value) {
+    return [];
+  }
+  return data.schedules;
+});
 const isLoading = ref(true);
 const errorMessage = ref('');
+let latestRequest = 0;
 
 async function loadMonth(): Promise<void> {
+  const requestId = ++latestRequest;
+  const requestedYear = year.value;
+  const requestedMonth = month.value;
   isLoading.value = true;
   errorMessage.value = '';
   try {
-    scheduleData.value = await api.request<SchedulesResponse>(
-      `/schedules?year=${year.value}&month=${String(month.value).padStart(2, '0')}`,
+    const response = await api.request<SchedulesResponse>(
+      `/schedules?year=${requestedYear}&month=${String(requestedMonth).padStart(2, '0')}`,
     );
+    if (requestId === latestRequest) {
+      scheduleData.value = response;
+    }
   } catch (error) {
-    scheduleData.value = null;
+    if (requestId !== latestRequest) {
+      return;
+    }
     const statusCode =
       typeof error === 'object' && error !== null && 'statusCode' in error
         ? error.statusCode
@@ -35,7 +51,9 @@ async function loadMonth(): Promise<void> {
     errorMessage.value =
       error instanceof Error ? error.message : 'Unable to load this schedule.';
   } finally {
-    isLoading.value = false;
+    if (requestId === latestRequest) {
+      isLoading.value = false;
+    }
   }
 }
 
@@ -71,16 +89,15 @@ onMounted(loadMonth);
       <span>Tap any date to view details</span>
     </div>
 
-    <p v-if="errorMessage" class="error-banner" role="alert">{{ errorMessage }}</p>
-    <div v-if="isLoading && !scheduleData" class="loading-state surface" role="status">
-      Loading schedule…
+    <div v-if="errorMessage" class="schedule-error" role="alert">
+      <p class="error-banner">{{ errorMessage }}</p>
+      <button type="button" class="retry-button" @click="loadMonth">Try again</button>
     </div>
     <ScheduleCalendar
-      v-else-if="scheduleData"
       :year="year"
       :month="month"
-      :schedules="scheduleData.schedules"
-      :legend="scheduleData.legend"
+      :schedules="displayedSchedules"
+      :legend="scheduleData?.legend ?? []"
       :loading="isLoading"
       @change-month="changeMonth"
       @select-date="openDate"
@@ -146,7 +163,18 @@ onMounted(loadMonth);
   }
 }
 
-.schedule-page > .error-banner {
+.schedule-error {
   margin-bottom: 14px;
+}
+
+.retry-button {
+  margin: 8px 0 0 4px;
+  padding: 4px 0;
+  border: 0;
+  color: var(--navy);
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
 }
 </style>

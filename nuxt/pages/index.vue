@@ -20,7 +20,7 @@ async function submitLogin(): Promise<void> {
     await navigateTo('/home');
   } catch (error) {
     errorMessage.value =
-      error instanceof Error ? error.message : 'Login gagal. Silakan coba lagi.';
+      error instanceof Error ? error.message : 'Unable to sign in. Please try again.';
   } finally {
     isLoading.value = false;
   }

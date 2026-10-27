@@ -39,20 +39,35 @@ export const useAuthStore = defineStore('auth', {
         this.setToken(response.accessToken);
       } catch (error) {
         if (!isApiError(error)) {
-          throw new Error('Login gagal. Periksa koneksi dan coba lagi.');
+          throw new Error(
+            'Cannot reach the server. It may be waking up; please try again in a moment.',
+          );
         }
         const apiError = error;
+        const statusCode =
+          'statusCode' in apiError && typeof apiError.statusCode === 'number'
+            ? apiError.statusCode
+            : undefined;
         const message = apiError.data?.message;
         if (
           Array.isArray(message) &&
           message.some((item) => item.includes('username') || item.includes('password'))
         ) {
-          throw new Error('Username dan password wajib diisi.');
+          throw new Error('Username and password are required.');
         }
-        if ('statusCode' in apiError && apiError.statusCode === 401) {
-          throw new Error('Username atau password salah. Silakan coba lagi.');
+        if (statusCode === 401) {
+          throw new Error('Incorrect username or password. Please try again.');
         }
-        throw new Error('Login gagal. Periksa koneksi dan coba lagi.');
+        if (
+          statusCode === undefined ||
+          statusCode === 0 ||
+          [502, 503, 504].includes(statusCode)
+        ) {
+          throw new Error(
+            'Cannot reach the server. It may be waking up; please try again in a moment.',
+          );
+        }
+        throw new Error('Unable to sign in. Please try again.');
       }
     },
     logout(): void {

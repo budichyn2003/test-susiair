@@ -22,17 +22,15 @@ const selectedRange = ref('1w');
 const isLoading = ref(true);
 const isChartLoading = ref(false);
 const errorMessage = ref('');
+const chartError = ref('');
 const avatarFailed = ref(false);
+let latestChartRequest = 0;
 const cardLabels: Array<{ key: keyof LimitSummary; label: string }> = [
   { key: 'daily', label: 'Daily' },
   { key: 'weekly', label: 'Weekly' },
   { key: 'monthly', label: 'Monthly' },
   { key: 'annual', label: 'Annual' },
 ];
-const greeting = computed(() => {
-  const hour = new Date().getHours();
-  return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-});
 const initials = computed(() =>
   (profile.value?.name ?? 'John Doe')
     .split(/\s+/)
@@ -43,17 +41,36 @@ const initials = computed(() =>
 );
 
 async function loadSummary(range: string): Promise<void> {
+  const requestId = ++latestChartRequest;
+  selectedRange.value = range;
   isChartLoading.value = true;
-  errorMessage.value = '';
+  chartError.value = '';
   try {
-    summary.value = await api.request<FlightHoursSummary>(
+    const nextSummary = await api.request<FlightHoursSummary>(
       `/flight-hours/summary?range=${range}`,
     );
-    selectedRange.value = range;
+    if (requestId === latestChartRequest) {
+      summary.value = nextSummary;
+    }
   } catch (error) {
-    handleApiError(error);
+    if (requestId !== latestChartRequest) {
+      return;
+    }
+    const statusCode =
+      typeof error === 'object' && error !== null && 'statusCode' in error
+        ? error.statusCode
+        : undefined;
+    if (statusCode === 401) {
+      auth.logout();
+      void navigateTo('/');
+      return;
+    }
+    chartError.value =
+      error instanceof Error ? error.message : 'Unable to load this chart range.';
   } finally {
-    isChartLoading.value = false;
+    if (requestId === latestChartRequest) {
+      isChartLoading.value = false;
+    }
   }
 }
 
@@ -69,6 +86,8 @@ async function loadHome(): Promise<void> {
     profile.value = pilot;
     documents.value = docs;
     summary.value = hoursSummary;
+    selectedRange.value = hoursSummary.range;
+    chartError.value = '';
   } catch (error) {
     handleApiError(error);
   } finally {
@@ -90,6 +109,10 @@ function handleApiError(error: unknown): void {
     error instanceof Error ? error.message : 'Unable to load pilot information.';
 }
 
+function retryChart(): void {
+  void loadSummary(selectedRange.value);
+}
+
 function signOut(): void {
   auth.logout();
   void navigateTo('/');
@@ -102,7 +125,7 @@ onMounted(loadHome);
   <main class="page-shell home-page">
     <header class="home-header">
       <div>
-        <p class="eyebrow">{{ greeting }}, pilot</p>
+        <p class="eyebrow">Welcome back, pilot</p>
         <h1>{{ profile?.name ?? 'Pilot' }}</h1>
       </div>
       <button class="logout-button" type="button" aria-label="Sign out" @click="signOut">
@@ -169,7 +192,10 @@ onMounted(loadHome);
             :selected-range="selectedRange"
             @select-range="loadSummary"
           />
-          <div v-if="errorMessage" class="chart-error" role="alert">{{ errorMessage }}</div>
+          <div v-if="chartError" class="chart-error" role="alert">
+            <span>{{ chartError }}</span>
+            <button type="button" @click="retryChart">Try again</button>
+          </div>
         </div>
       </section>
 
@@ -298,9 +324,24 @@ onMounted(loadHome);
 }
 
 .chart-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin: 8px 4px 0;
   color: #a61f37;
   font-size: 11px;
+
+  button {
+    flex: 0 0 auto;
+    padding: 4px 0;
+    border: 0;
+    color: var(--navy);
+    background: transparent;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+  }
 }
 
 .error-panel {
